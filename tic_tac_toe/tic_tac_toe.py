@@ -21,9 +21,7 @@ class Environment:
         return m
 
     def game_over(self):
-        # Full board
-        if np.all((self.board != 0)):
-            return True
+        
         # Rows
         for p in (self.X, self.O):
             for i in range(self.size):
@@ -44,6 +42,10 @@ class Environment:
             if np.fliplr(self.board).trace() == self.size * p:
                 self.winner = p
                 return True
+        # Full board
+        if np.all((self.board != 0)):
+            self.winner = None
+            return True
 
         self.winner = None
         return False
@@ -52,17 +54,25 @@ class Environment:
         return self.board[r, c] == 0
 
     def get_reward(self, player):
-        if not self.game_over():
-            return 0
-        return 1 if self.winner == player else 0
+        if self.winner == player:
+            return 1
+        if self.winner == None:
+            return 0.5
+        return -1
 
     def get_hash_state(self):
         i = 0
         v = 0
-        def convert(x): return 1 if x == self.X else -2 * x
+        def convert(x): 
+            if x == 1:
+                return 1
+            if x == -1:
+                return 2
+            return 0
+            
         for r in range(self.size):
             for c in range(self.size):
-                v += self.size * (convert(self.board[r, c]) ** i)
+                v += self.size ** i * convert(self.board[r, c])
                 i += 1
         return v
 
@@ -83,12 +93,13 @@ class Environment:
 
 class Agent:
 
-    def __init__(self, color):
+    def __init__(self, color,verbose=False):
         self.color = color
         self.history = []
         self.V = {}
-        self.learning_rate = 0.05
-        self.e = 0.3
+        self.learning_rate = 0.25
+        self.e = 0.25
+        self.verbose = verbose
 
     def get_v(self, state):
         if not state in self.V:
@@ -99,6 +110,7 @@ class Agent:
         moves = env.moves()
         best_action_value = -1
         best_move = None
+        pos2value = {} #Debug
         # Epsilon greedy
         r = np.random.random()
         if r < self.e:
@@ -110,6 +122,7 @@ class Agent:
 
                 env.board[move[0], move[1]] = self.color
                 state = env.get_hash_state()
+                pos2value[(move[0], move[1])] = self.get_v(state)
                 env.board[move[0], move[1]] = 0
 
                 if self.get_v(state) > best_action_value:
@@ -117,14 +130,37 @@ class Agent:
                     best_move = move
 
         env.board[best_move[0], best_move[1]] = self.color
+        if self.verbose:
+            for i in range(env.size):
+                print("------------------")
+                for j in range(env.size):
+                    if env.board[i,j] == 0:
+                        # print the value
+                        if (i,j) in pos2value:
+                            print(" %.2f|" % pos2value[(i,j)], end="")
+                        else: 
+                            print("?  |",end="")
+                    else:
+                        print("  ", end="")
+                        if env.board[i,j] == env.X:
+                            print("x  |", end="")
+                        elif env.board[i,j] == env.O:
+                            print("o  |", end="")
+                        else:
+                            print("   |", end="")
+                print("")
+            print("------------------")
 
     def update(self, env):
         reward = env.get_reward(self.color)
         target = reward
+        last_state = True
         for Vp in reversed(self.history):
-            v = self.get_v(Vp) + self.learning_rate * (target - self.get_v(Vp))
+            Vprev = 1 if target == 1 and last_state else self.get_v(Vp)
+            v = Vprev + self.learning_rate * (target - Vprev)
             self.V[Vp] = v
             target = v
+            last_state = False
 
         self.history = []
 
@@ -199,23 +235,26 @@ if __name__ == "__main__":
     p1 = Agent(1)
     p2 = Agent(-1)
 
-    for i in range(4000):
+    for i in range(5000):
+        if i%100 == 0:
+            print("Number of games play:", i)
         play_game(Environment(size), p1, p2)
     
     print('Level: ', len(p1.V))
-    # human = Human(1)
-    
-    # while True:
-    #     play_game(Environment(size), p2, human, verbose=True)
-    #     answer = input("Play again? [Y/n]: ")
-    #     if answer and answer.lower()[0] == 'n':
-    #         break
+
+    p1.verbose = True
+    while True:
+        p1.e = 0
+        play_game(Environment(size), p1, Human(-1), verbose=True)
+        answer = input("Play again? [Y/n]: ")
+        if answer and answer.lower()[0] == 'n':
+            break
     
     random = RandomAgent(-1)
     stats = {1: 0, -1: 0, None: 0}
     for i in range(100):
         env = Environment(size)
-        p1.e = 0.0
+        p1.e = 0
         play_game(env, p1, random)    
         stats[env.winner]+=1
     print(stats)
