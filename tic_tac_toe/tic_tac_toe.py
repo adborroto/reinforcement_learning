@@ -1,7 +1,6 @@
 import numpy as np
 
-##Tic tac toe enviroment
-
+##Tic tac toe environment
 
 class Environment:
     def __init__(self, size=3):
@@ -135,7 +134,6 @@ class Agent:
                 print("------------------")
                 for j in range(env.size):
                     if env.board[i,j] == 0:
-                        # print the value
                         if (i,j) in pos2value:
                             print(" %.2f|" % pos2value[(i,j)], end="")
                         else: 
