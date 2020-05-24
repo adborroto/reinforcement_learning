@@ -3,6 +3,7 @@ import numpy as np
 import math
 import time
 Q = {}
+np.random.seed = 32
 
 def epsilon_greedy(env, current_action, eps=0.1):
     if np.random.random() < eps or current_action == None:
@@ -24,7 +25,7 @@ def get_state_code(state, env):
     bounds = list(zip(env.observation_space.low, env.observation_space.high))
     bounds[1] = [-0.5, 0.5]
     bounds[3] = [-math.radians(50), math.radians(50)]
-    scale_factors = [1,2,7,4]
+    scale_factors = [3,3,8,6]
     encode_state = []
     for i in range(len(state)):
         value = state[i]
@@ -32,8 +33,8 @@ def get_state_code(state, env):
         max_bound = bounds[i][1]
         value = min_bound if value< min_bound else value
         value = max_bound if value > max_bound else value
-        width = max_bound - min_bound
-        x = int(((value - min_bound ) / width) * scale_factors[i])
+        width = (max_bound - min_bound ) / scale_factors[i]
+        x = int(((value - min_bound ) / width) )
         encode_state.append(x)
     return tuple(encode_state)
 
@@ -50,7 +51,7 @@ def Q_state_action(state, action, initial_value = 0):
     return Q[state][action]
 
 
-def train(env, iter=1000, alpha=0.1, gamma=0.9):
+def train(env, iter=3000, alpha=0.1, gamma=0.9):
     for i_episode in range(iter):
         s = env.reset()
         a = epsilon_greedy(env, env.action_space.sample())
@@ -86,8 +87,10 @@ def test(env):
             action = max_action(Q[state],env)
             observation, reward, done, info = env.step(action)
             if done:
-                print("++++++++++++> Episode finished after {} timesteps".format(t+1))
+                print("Game over after {} timesteps".format(t+1))
                 break
+            if t == 99:
+                print("Win after {} timesteps".format(t+1))
 
 
 if __name__ == "__main__":
